@@ -10,6 +10,8 @@ public class RestauranteContext(
     public DbSet<Plato> Platos => Set<Plato>();
     public DbSet<Categoria> Categorias => Set<Categoria>();
     public DbSet<Mesa> Mesas => Set<Mesa>();
+    
+    public DbSet<Usuarios>Usuarios => Set<Usuarios>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {

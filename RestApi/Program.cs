@@ -28,6 +28,8 @@ builder.Services.AddScoped<ICategoriaRepositorio, CategoriaRepositorio>();
 builder.Services.AddScoped<CategoriaServicio>();
 builder.Services.AddScoped<IMesaRepositorio, MesaRepositorio>();
 builder.Services.AddScoped<MesaServicio>();
+builder.Services.AddScoped<IUsuarioReposistorio, UsuarioRepositorio>();
+builder.Services.AddScoped<UsuarioServicio>();
 
 
 // 3. Platos
@@ -86,4 +88,5 @@ app.MapGet("/productos", (ProductoServicio servicio) =>
 app.MapCategoriaEndpoints();
 app.MapPlatoEndpoints();
 app.MapMesaEndpoints();
+app.MapUsuarioEndpoints();
 app.Run();
