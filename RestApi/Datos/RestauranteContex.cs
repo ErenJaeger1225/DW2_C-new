@@ -12,6 +12,9 @@ public class RestauranteContext(
     public DbSet<Mesa> Mesas => Set<Mesa>();
     
     public DbSet<Usuarios>Usuarios => Set<Usuarios>();
+    public DbSet<Pedido> Pedidos => Set<Pedido>();
+    public DbSet<DetallePedido> Detalles
+        => Set<DetallePedido>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -22,5 +25,18 @@ public class RestauranteContext(
             e.Ignore(p => p.Categoria);   // viene del JOIN
             e.HasQueryFilter(p => p.Disponible == 1);
         });
+
+        // en OnModelCreating
+        mb.Entity<DetallePedido>(e =>
+        {
+            e.ToTable("DetallesPedido");   // nombre real
+            e.Property(d => d.PrecioUnitario)
+             .HasPrecision(10, 2);
+        });
+        mb.Entity<Pedido>()
+          .HasMany(p => p.Detalles)
+          .WithOne()
+          .HasForeignKey(d => d.PedidoId);
+
     }
 }

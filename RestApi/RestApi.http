@@ -142,3 +142,48 @@ GET {{RestApi_HostAddress}}/mesas/1/visor
 ### 19. Eliminar mesa
 DELETE {{RestApi_HostAddress}}/mesas/1
 
+###
+### ==========================================
+### ENDPOINTS DE AUTENTICACIÓN Y USUARIOS
+### ==========================================
+
+### 20. Iniciar sesión (Login)
+# IMPORTANTE: Los valores de texto (como correo y password) DEBEN ir entre comillas dobles "" en JSON
+POST {{RestApi_HostAddress}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "admin@itq.ec",
+  "password": "Password123!"
+}
+
+###
+
+### 21. Consultar usuario actual según Token JWT (/auth/yo)
+# Reemplaza <TU_TOKEN_AQUI> con el token obtenido en el login
+GET {{RestApi_HostAddress}}/auth/yo
+Authorization: Bearer <TU_TOKEN_AQUI>
+Accept: application/json
+
+###
+
+### 22. Registrar nuevo usuario (Requiere rol Administrador)
+POST {{RestApi_HostAddress}}/auth/registro
+Authorization: Bearer <TU_TOKEN_AQUI>
+Content-Type: application/json
+
+{
+  "nombre": "Carlos Mesero",
+  "correo": "carlos@itq.ec",
+  "password": "Password123!",
+  "rol": "Mesero"
+}
+
+###
+
+### 23. Listar usuarios registrados (Requiere rol Administrador)
+GET {{RestApi_HostAddress}}/usuarios
+Authorization: Bearer <TU_TOKEN_AQUI>
+Accept: application/json
+
+

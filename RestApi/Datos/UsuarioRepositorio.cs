@@ -14,7 +14,7 @@ public class UsuarioRepositorio(RestauranteContext db)
 
     public Task<Usuarios?> ObtenerPorCorreoAsync(string correo) =>
         db.Usuarios.FirstOrDefaultAsync(
-            u => u.Correo == correo && u.Activo);
+            u => u.Correo == correo);
 
     public Task<bool> ExisteCorreoAsync(string correo) =>
         db.Usuarios.AnyAsync(u => u.Correo == correo);
@@ -22,6 +22,12 @@ public class UsuarioRepositorio(RestauranteContext db)
     public async Task AgregarAsync(Usuarios u)
     {
         db.Usuarios.Add(u);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task ActualizarAsync(Usuarios u)
+    {
+        db.Usuarios.Update(u);
         await db.SaveChangesAsync();
     }
 }

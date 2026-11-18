@@ -10,4 +10,5 @@ public interface IUsuarioReposistorio
     Task<Usuarios?> ObtenerPorCorreoAsync(string correo);
     Task<bool> ExisteCorreoAsync(string correo);
     Task AgregarAsync(Usuarios u);
+    Task ActualizarAsync(Usuarios u);
 }

@@ -1,92 +1,154 @@
-
-
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using RestApi.Datos;
+using RestApi.Entidades;
 using RestApi.Negocio;
 using RestApi.Web;
-using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-var cn = builder.Configuration
-    .GetConnectionString("Restaurante");
 
-// ==========================================
-// Registro de dependencias en el contenedor DI
-// Siguiendo el principio de inversión de dependencias (DIP):
-// Los servicios de negocio dependen de interfaces de repositorio.
-// ==========================================
 
-// 1. Productos
+// 1. Evitar error de permisos en Windows EventLog ("Cannot open log for source '.NET Runtime'")
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
+// 2. Cadena de conexión
+var cn = builder.Configuration.GetConnectionString("Restaurante");
+
+// 3. Inyección de dependencias (DIP)
+// Productos (en memoria)
 builder.Services.AddScoped<IProductoRepositorio, ProductoRepositorio>();
 builder.Services.AddScoped<ProductoServicio>();
 
-builder.Services.AddDbContext<RestauranteContext>(
-    o => 
-    o.UseMySql(cn, ServerVersion.AutoDetect(cn)));
-
-// 2. Categorías
-builder.Services.AddScoped<ICategoriaRepositorio, CategoriaRepositorio>();
-builder.Services.AddScoped<CategoriaServicio>();
-builder.Services.AddScoped<IMesaRepositorio, MesaRepositorio>();
-builder.Services.AddScoped<MesaServicio>();
-builder.Services.AddScoped<IUsuarioReposistorio, UsuarioRepositorio>();
-builder.Services.AddScoped<UsuarioServicio>();
-
-
-// 3. Platos
+// Platos
 builder.Services.AddScoped<IPlatoRepositorio, PlatoRepositorio>();
 builder.Services.AddScoped<PlatoServicio>();
 
+// Categorías
+builder.Services.AddScoped<ICategoriaRepositorio, CategoriaRepositorio>();
+builder.Services.AddScoped<CategoriaServicio>();
+
+// Mesas
+builder.Services.AddScoped<IMesaRepositorio, MesaRepositorio>();
+builder.Services.AddScoped<MesaServicio>();
+
+// Usuarios
+builder.Services.AddScoped<IUsuarioReposistorio, UsuarioRepositorio>();
+builder.Services.AddScoped<UsuarioServicio>();
+
+// JWT y Seguridad
+builder.Services.AddScoped<TokenServicio>();
+builder.Services.AddScoped<AuthServicio>();
+
+// OpenAPI
+builder.Services.AddOpenApi();
+
+// 4. DbContext (MySQL) con detección segura para no tumbar la API al iniciar si la BD aún no responde
+ServerVersion serverVersion;
+try
+{
+    serverVersion = ServerVersion.AutoDetect(cn);
+}
+catch
+{
+    serverVersion = new MySqlServerVersion(new Version(8, 0, 36));
+}
+
+builder.Services.AddDbContext<RestauranteContext>(
+    o => o.UseMySql(cn, serverVersion));
+
+// 5. Configuración de JWT Authentication y Authorization
+var jwt = builder.Configuration.GetSection("Jwt");
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        o.MapInboundClaims = false;
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwt["Audience"],
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwt["Key"]!)),
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("SoloAdmin", p => p.RequireRole(Roles.Administrador))
+    .AddPolicy("soloAdmin", p => p.RequireRole(Roles.Administrador));
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("SoloAdmin",           // ya lo tienes
+        p => p.RequireRole(Roles.Administrador))
+    // NUEVAS: una política por grupo de roles
+    .AddPolicy("Personal",
+        p => p.RequireRole(Roles.Administrador,
+                           Roles.Mesero, Roles.Cocina))
+    .AddPolicy("Mesero",
+        p => p.RequireRole(Roles.Mesero))
+    .AddPolicy("Cocina",
+        p => p.RequireRole(Roles.Cocina));
 var app = builder.Build();
 
-// ==========================================
-// Mapeo de Endpoints (Minimal API)
-// ==========================================
+// Activar OpenAPI en desarrollo
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
-// Endpoint raíz con enlaces para fácil navegación en navegador
-app.MapGet("/", () => Results.Content("""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <title>RestApi - Restaurante ITQ</title>
-        <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 650px; margin: 40px auto; padding: 20px; line-height: 1.6; background-color: #f8fafc; color: #1e293b; }
-            .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-            h1 { color: #0f172a; margin-top: 0; }
-            ul { list-style: none; padding-left: 0; }
-            li { margin-bottom: 12px; padding: 10px; background: #f1f5f9; border-radius: 8px; }
-            a { color: #2563eb; font-weight: 600; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-            .badge { display: inline-block; font-size: 0.75rem; background: #e2e8f0; padding: 2px 8px; border-radius: 9999px; margin-left: 6px; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h1>🍽️ Restaurante ITQ - API</h1>
-            <p>Selecciona un endpoint para visualizar en el navegador:</p>
-            <ul>
-                <li><a href="/mesas/1/visor">/mesas/1/visor</a> <span class="badge">Recomendado</span> - Visor interactivo del QR</li>
-                <li><a href="/mesas/1/qr">/mesas/1/qr</a> - Imagen PNG directa del QR</li>
-                <li><a href="/mesas">/mesas</a> - Listado de mesas en JSON</li>
-                <li><a href="/platos">/platos</a> - Catálogo de platos en JSON</li>
-                <li><a href="/categorias">/categorias</a> - Categorías en JSON</li>
-                <li><a href="/productos">/productos</a> - Productos en memoria</li>
-            </ul>
-        </div>
-    </body>
-    </html>
-""", "text/html"));
+// 6. Middlewares de seguridad
+app.UseAuthentication();
+app.UseAuthorization();
 
-// Endpoint en memoria para productos disponibles
+// 8. Endpoints adicionales
 app.MapGet("/productos", (ProductoServicio servicio) =>
 {
     var productosDisponibles = servicio.ListarDisponibles();
     return Results.Ok(productosDisponibles);
 });
 
-// Grupos de endpoints organizados por entidad
-app.MapCategoriaEndpoints();
+// 9. Mapeo de grupos de endpoints por entidad
 app.MapPlatoEndpoints();
+app.MapCategoriaEndpoints();
 app.MapMesaEndpoints();
 app.MapUsuarioEndpoints();
+app.MapAuthEndpoints();
+
+// 10. Semilla inicial: Si no existe ningún usuario registrado, crear Administrador por defecto
+using (var scope = app.Services.CreateScope())
+{
+    var repo = scope.ServiceProvider.GetService<IUsuarioReposistorio>();
+    if (repo != null)
+    {
+        try
+        {
+            var usuarios = repo.ListarAsync().GetAwaiter().GetResult();
+            if (!usuarios.Any())
+            {
+                repo.AgregarAsync(new Usuarios
+                {
+                    Nombre = "Administrador",
+                    Correo = "admin@itq.ec",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                    Rol = Roles.Administrador,
+                    Activo = true
+                }).GetAwaiter().GetResult();
+            }
+        }
+        catch
+        {
+            // Continuar si la BD aún no tiene la tabla o está offline
+        }
+    }
+}
+
 app.Run();

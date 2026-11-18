@@ -30,7 +30,7 @@ public static class PlatoEndpoints
             {
                 p.Id = await s.AgregarAsync(p);
                 return Results.Created($"/platos/{p.Id}", p); // 201 Created
-            }));
+            })).RequireAuthorization("SoloAdmin");//nuevo
 
         // PUT /platos/{id} - Actualizar los datos de un plato existente (HTTP 200)
         grupo.MapPut("/{id:int}", (int id, Plato p, PlatoServicio s) =>
@@ -39,7 +39,7 @@ public static class PlatoEndpoints
                 p.Id = id;
                 await s.ActualizarAsync(p);
                 return Results.Ok(p);
-            }));
+            })).RequireAuthorization("SoloAdmin");//nuevo
 
         // DELETE /platos/{id} - Borrado lógico de un plato (HTTP 204)
         grupo.MapDelete("/{id:int}", (int id, PlatoServicio s) =>
@@ -47,6 +47,6 @@ public static class PlatoEndpoints
             {
                 await s.EliminarAsync(id);
                 return Results.NoContent(); // 204 No Content
-            }));
+            })).RequireAuthorization("SoloAdmin");//nuevo
     }
 }
